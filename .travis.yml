@@ -17,9 +17,9 @@ env:
   global:
     - OPTIONS="verbose=no warnings=no progress=no builtin_openssl=yes -j$(sysctl -n hw.logicalcpu)"
   matrix:
-    - PLATFORM=osx    TARGET=editor    INCLUDE_PATTERN="bin/Godot-macOS-x86_64.dmg"    UPLOAD_PATTERN="Godot-macOS-x86_64-#[VERSION].dmg"
-    - PLATFORM=osx    TARGET=templates INCLUDE_PATTERN="bin/Godot-Templates-macOS.tpz" UPLOAD_PATTERN="templates/Godot-Templates-macOS-#[VERSION].tpz"
-    - PLATFORM=iphone TARGET=templates INCLUDE_PATTERN="bin/Godot-Templates-iOS.tpz"   UPLOAD_PATTERN="templates/Godot-Templates-iOS-#[VERSION].tpz"
+    - PLATFORM=osx    TARGET=editor    INCLUDE_PATTERN="godot/bin/Godot-macOS-x86_64.dmg"    UPLOAD_PATTERN="Godot-macOS-x86_64-#[VERSION].dmg"
+    - PLATFORM=osx    TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-macOS.tpz" UPLOAD_PATTERN="templates/Godot-Templates-macOS-#[VERSION].tpz"
+    - PLATFORM=iphone TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-iOS.tpz"   UPLOAD_PATTERN="templates/Godot-Templates-iOS-#[VERSION].tpz"
 
 before_script:
   - brew update
@@ -95,4 +95,4 @@ deploy:
   user: calinou
   key: $BINTRAY_API_KEY
   on:
-    all_branches: true
+    branch: master

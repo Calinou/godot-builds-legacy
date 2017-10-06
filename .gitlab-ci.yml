@@ -61,7 +61,7 @@ build:linux_editor:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/godot.x11.opt.tools.64
+      - godot/bin/godot.x11.opt.tools.64
 
 package:linux_editor:
   stage: package
@@ -83,13 +83,13 @@ package:linux_editor:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/Godot_Engine-x86_64.AppImage
+      - godot/bin/Godot_Engine-x86_64.AppImage
 
 deploy:linux_editor:
   dependencies:
     - package:linux_editor
   variables:
-    INCLUDE_PATTERN: "bin/Godot_Engine-x86_64.AppImage"
+    INCLUDE_PATTERN: "godot/bin/Godot_Engine-x86_64.AppImage"
     UPLOAD_PATTERN: "Godot-Linux-x86_64-#[VERSION].AppImage"
   <<: *deploy
 
@@ -112,8 +112,8 @@ build:linux_templates:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/godot.x11.opt.debug.64
-      - bin/godot.x11.opt.64
+      - godot/bin/godot.x11.opt.debug.64
+      - godot/bin/godot.x11.opt.64
 
 package:linux_templates:
   stage: package
@@ -136,13 +136,13 @@ package:linux_templates:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/Godot-Templates-Linux.tpz
+      - godot/bin/Godot-Templates-Linux.tpz
 
 deploy:linux_templates:
   dependencies:
     - package:linux_templates
   variables:
-    INCLUDE_PATTERN: "bin/Godot-Templates-Linux.tpz"
+    INCLUDE_PATTERN: "godot/bin/Godot-Templates-Linux.tpz"
     UPLOAD_PATTERN: "templates/Godot-Templates-Linux-#[VERSION].tpz"
   <<: *deploy
 
@@ -161,7 +161,7 @@ build:html5:
     - cd emsdk-portable/; ./emsdk update; ./emsdk install latest; ./emsdk activate latest
     - source ./emsdk_env.sh
     - export EMSCRIPTEN_ROOT=$(em-config EMSCRIPTEN_ROOT)
-    - cd $CI_PROJECT_DIR
+    - cd $CI_PROJECT_DIR/godot/
     - scons platform=javascript wasm=yes tools=no target=release_debug verbose=no warnings=no progress=no -j$(nproc)
     - scons platform=javascript wasm=yes tools=no target=release verbose=no warnings=no progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug verbose=no warnings=no progress=no -j$(nproc)
@@ -170,7 +170,7 @@ build:html5:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/
+      - godot/bin/
 
 package:html5:
   stage: package
@@ -193,12 +193,12 @@ package:html5:
     when: on_success
     expire_in: 2d
     paths:
-      - bin/Godot-Templates-HTML5.tpz
+      - godot/bin/Godot-Templates-HTML5.tpz
 
 deploy:html5:
   dependencies:
     - package:html5
   variables:
-    INCLUDE_PATTERN: "bin/Godot-Templates-HTML5.tpz"
+    INCLUDE_PATTERN: "godot/bin/Godot-Templates-HTML5.tpz"
     UPLOAD_PATTERN: "templates/Godot-Templates-HTML5-#[VERSION].tpz"
   <<: *deploy
