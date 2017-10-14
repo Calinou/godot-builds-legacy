@@ -15,11 +15,11 @@ os:
 
 env:
   global:
-    - OPTIONS="verbose=no warnings=no progress=no builtin_openssl=yes -j$(sysctl -n hw.logicalcpu)"
+    - SCONS_OPTIONS="progress=no -j$(sysctl -n hw.logicalcpu)"
   matrix:
-    - PLATFORM=osx    TARGET=editor    INCLUDE_PATTERN="godot/bin/Godot-macOS-x86_64.dmg"    UPLOAD_PATTERN="Godot-macOS-x86_64-#[VERSION].dmg"
-    - PLATFORM=osx    TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-macOS.tpz" UPLOAD_PATTERN="templates/Godot-Templates-macOS-#[VERSION].tpz"
-    - PLATFORM=iphone TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-iOS.tpz"   UPLOAD_PATTERN="templates/Godot-Templates-iOS-#[VERSION].tpz"
+    - PLATFORM=osx    TARGET=editor    INCLUDE_PATTERN="godot/bin/Godot-macOS-x86_64.dmg"    UPLOAD_PATTERN="Godot-macOS-x86_64-#[BUILD_VERSION].dmg"
+    - PLATFORM=osx    TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-macOS.tpz" UPLOAD_PATTERN="templates/Godot-Templates-macOS-#[BUILD_VERSION].tpz"
+    - PLATFORM=iphone TARGET=templates INCLUDE_PATTERN="godot/bin/Godot-Templates-iOS.tpz"   UPLOAD_PATTERN="templates/Godot-Templates-iOS-#[BUILD_VERSION].tpz"
 
 before_script:
   - brew update
@@ -34,7 +34,7 @@ before_script:
 script:
   - if [ "$PLATFORM" = "osx" ]; then
       if [ "$TARGET" = "editor" ]; then
-        scons platform=osx bits=64 tools=yes target=release_debug $OPTIONS;
+        scons platform=osx bits=64 tools=yes target=release_debug $SCONS_OPTIONS;
         mkdir -p godot_dmg/;
         cp -r misc/dist/osx_tools.app/ godot_dmg/Godot.app/;
         mkdir -p godot_dmg/Godot.app/Contents/MacOS/;
@@ -45,8 +45,8 @@ script:
         cd ../;
       fi;
       if [ "$TARGET" = "templates" ]; then
-        scons platform=osx bits=64 tools=no target=release_debug $OPTIONS;
-        scons platform=osx bits=64 tools=no target=release $OPTIONS;
+        scons platform=osx bits=64 tools=no target=release_debug $SCONS_OPTIONS;
+        scons platform=osx bits=64 tools=no target=release $SCONS_OPTIONS;
         mv misc/dist/osx_template.app/ osx_template.app/;
         mkdir -p osx_template.app/Contents/MacOS/;
         mv bin/godot.osx.opt.debug.64 osx_template.app/Contents/MacOS/godot_osx_debug.fat;
@@ -60,8 +60,8 @@ script:
       fi;
     fi;
   - if [ "$PLATFORM" = "iphone" ]; then
-      scons platform=iphone arch=arm tools=no target=release $OPTIONS;
-      scons platform=iphone arch=arm64 tools=no target=release $OPTIONS;
+      scons platform=iphone arch=arm tools=no target=release $SCONS_OPTIONS;
+      scons platform=iphone arch=arm64 tools=no target=release $SCONS_OPTIONS;
       mv misc/dist/ios_xcode/ godot_ios_xcode/;
       lipo -create -arch armv7 bin/godot.iphone.opt.arm -arch arm64 bin/godot.iphone.opt.arm64 -output godot_ios_xcode/godot_opt.iphone;
       cd godot_ios_xcode/;
@@ -80,13 +80,13 @@ script:
 before_deploy:
   - brew update
   - brew install rpl
-  - VERSION=$(git rev-parse --short HEAD | head -c 7)
-  - DATE=$(git log -1 --format=%cd --date=short)
+  - BUILD_VERSION=$(git -C godot/ rev-parse --short HEAD)
+  - BUILD_DATE=$(date -I)
   - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
   - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json
   - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json
-  - rpl "#[VERSION]" "$DATE.$VERSION" .bintray.json
-  - rpl "#[DATE]" "$DATE" .bintray.json
+  - rpl "#[BUILD_VERSION]" "$BUILD_DATE.$BUILD_VERSION" .bintray.json
+  - rpl "#[BUILD_DATE]" "$BUILD_DATE" .bintray.json
 
 deploy:
   skip_cleanup: true

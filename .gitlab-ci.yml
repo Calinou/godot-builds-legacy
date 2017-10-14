@@ -1,4 +1,3 @@
----
 # The GitHub repository is mirrored to GitLab.com, where continuous builds
 # are performed for Linux and HTML5 platforms using GitLab CI.
 #
@@ -18,44 +17,40 @@ stages:
 ##
 
 # Deployment helper macro (used in all `deploy` stages)
-
 .deploy: &deploy
   stage: deploy
   image: ubuntu:xenial
-  before_script:
-    - apt-get update -y
-    - apt-get install -y git wget ruby rpl
-    - gem install dpl
+  <<: *install_dependencies
   script:
     - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
-    - VERSION=$(git rev-parse --short HEAD | head -c 7)
-    - DATE=$(git log -1 --format=%cd --date=short)
-    - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json # The variable is defined in each job
-    - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json   # The variable is defined in each job
-    - rpl "#[VERSION]" "$DATE.$VERSION" .bintray.json           # Replace the version *after* replacing the upload pattern, because it also is contained in the upload pattern
-    - rpl "#[DATE]" "$DATE" .bintray.json
+    - BUILD_VERSION=$(git -C godot/ rev-parse --short HEAD)
+    - BUILD_DATE=$(date -I)
+    - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json  # The variable is defined in each job
+    - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json  # The variable is defined in each job
+    - rpl "#[BUILD_VERSION]" "$BUILD_DATE.$BUILD_VERSION" .bintray.json  # Replace the version *after* replacing the upload pattern, because it also is contained in the upload pattern
+    - rpl "#[BUILD_DATE]" "$BUILD_DATE" .bintray.json
     - dpl --provider=bintray --file=.bintray.json --user=Calinou --key=$BINTRAY_API_KEY
 
 # Install dependencies before building or (sometimes) packaging
-
 .install_dependencies: &install_dependencies
   before_script:
-    - apt-get update -y
-    - apt-get install -y git cmake wget build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
-    - git clone https://github.com/godotengine/godot.git
+    - apt-get update -yqq
+    - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
+    - git clone --depth=1 https://github.com/godotengine/godot.git
     - cd godot/
+
 ##
 ## Linux editor
 ##
 
-# TODO: Build 32-bit Linux editor.
+# TODO: Build 32-bit Linux editor
 
 build:linux_editor:
   stage: build
   image: ubuntu:trusty
   <<: *install_dependencies
   script:
-    - scons platform=x11 tools=yes target=release_debug builtin_openssl=yes builtin_libpng=yes verbose=no warnings=no progress=no -j$(nproc)
+    - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
   artifacts:
     when: on_success
@@ -90,23 +85,24 @@ deploy:linux_editor:
     - package:linux_editor
   variables:
     INCLUDE_PATTERN: "godot/bin/Godot_Engine-x86_64.AppImage"
-    UPLOAD_PATTERN: "Godot-Linux-x86_64-#[VERSION].AppImage"
+    UPLOAD_PATTERN: "Godot-Linux-x86_64-#[BUILD_VERSION].AppImage"
   <<: *deploy
 
 ##
 ## Linux export templates
 ##
 
-# TODO: Build 32-bit Linux export templates. For now, the 64-bit templates are copied to 32-bit templates,
-# to prevent errors from appearing in the export dialog.
+# TODO: Build 32-bit Linux export templates. For now, the 64-bit templates
+# are copied to 32-bit templates, to prevent errors from appearing in the
+# export dialog.
 
 build:linux_templates:
   stage: build
   image: ubuntu:trusty
   <<: *install_dependencies
   script:
-    - scons platform=x11 tools=no target=release_debug builtin_openssl=yes builtin_libpng=yes verbose=no warnings=no progress=no -j$(nproc)
-    - scons platform=x11 tools=no target=release builtin_openssl=yes builtin_libpng=yes verbose=no warnings=no progress=no -j$(nproc)
+    - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
+    - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
   artifacts:
     when: on_success
@@ -120,9 +116,7 @@ package:linux_templates:
   image: ubuntu:trusty
   dependencies:
     - build:linux_templates
-  before_script:
-    - apt-get update -y
-    - apt-get install -y zip
+  <<: *install_dependencies
   script:
     - cd bin/
     - mkdir templates/
@@ -141,9 +135,10 @@ package:linux_templates:
 deploy:linux_templates:
   dependencies:
     - package:linux_templates
+  <<: *install_dependencies
   variables:
     INCLUDE_PATTERN: "godot/bin/Godot-Templates-Linux.tpz"
-    UPLOAD_PATTERN: "templates/Godot-Templates-Linux-#[VERSION].tpz"
+    UPLOAD_PATTERN: "templates/Godot-Templates-Linux-#[BUILD_VERSION].tpz"
   <<: *deploy
 
 ##
@@ -162,10 +157,10 @@ build:html5:
     - source ./emsdk_env.sh
     - export EMSCRIPTEN_ROOT=$(em-config EMSCRIPTEN_ROOT)
     - cd $CI_PROJECT_DIR/godot/
-    - scons platform=javascript wasm=yes tools=no target=release_debug verbose=no warnings=no progress=no -j$(nproc)
-    - scons platform=javascript wasm=yes tools=no target=release verbose=no warnings=no progress=no -j$(nproc)
-    - scons platform=javascript wasm=no tools=no target=release_debug verbose=no warnings=no progress=no -j$(nproc)
-    - scons platform=javascript wasm=no tools=no target=release verbose=no warnings=no progress=no -j$(nproc)
+    - scons platform=javascript wasm=yes tools=no target=release_debug progress=no -j$(nproc)
+    - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
+    - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
+    - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
   artifacts:
     when: on_success
     expire_in: 2d
@@ -177,9 +172,7 @@ package:html5:
   image: ubuntu:xenial
   dependencies:
     - build:html5
-  before_script:
-    - apt-get update -y
-    - apt-get install -y zip
+  <<: *install_dependencies
   script:
     - cd bin/
     - mkdir templates/
@@ -200,5 +193,5 @@ deploy:html5:
     - package:html5
   variables:
     INCLUDE_PATTERN: "godot/bin/Godot-Templates-HTML5.tpz"
-    UPLOAD_PATTERN: "templates/Godot-Templates-HTML5-#[VERSION].tpz"
+    UPLOAD_PATTERN: "templates/Godot-Templates-HTML5-#[BUILD_VERSION].tpz"
   <<: *deploy
