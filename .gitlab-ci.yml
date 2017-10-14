@@ -21,7 +21,7 @@ stages:
   before_script:
     - apt-get update -yqq
     - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
-    - git clone --depth=1 https://github.com/godotengine/godot.git
+    - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
     - cd godot/
 
 # Deployment helper macro (used in all `deploy` stages)
