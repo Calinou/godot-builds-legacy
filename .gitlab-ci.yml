@@ -32,7 +32,7 @@ stages:
   script:
     - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
     - BUILD_VERSION=$(git -C godot/ rev-parse --short HEAD)
-    - BUILD_DATE=$(date +%Y-%m-%d)
+    - BUILD_DATE=$(date -I)
     - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json  # The variable is defined in each job
     - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json  # The variable is defined in each job
     - rpl "#[BUILD_VERSION]" "$BUILD_DATE.$BUILD_VERSION" .bintray.json  # Replace the version *after* replacing the upload pattern, because it also is contained in the upload pattern

@@ -81,7 +81,7 @@ before_deploy:
   - brew update
   - brew install rpl
   - BUILD_VERSION=$(git rev-parse --short HEAD)
-  - BUILD_DATE=$(date -I)
+  - BUILD_DATE=$(date +%Y-%m-%d)
   - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
   - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json
   - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json
