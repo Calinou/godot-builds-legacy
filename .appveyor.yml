@@ -35,9 +35,9 @@ build_script:
 # debug-mode templates to avoid errors in the editor's export dialog
 after_build:
   - set BUILD_DATE=
-  - for /f "delims=" %a in ('..\appveyor\get_date.cmd') do @set BUILD_DATE=%a
+  - for /f "delims=" %%a in ('..\appveyor\get_date.cmd') do @set BUILD_DATE=%%a
   - set BUILD_VERSION=
-  - for /f "delims=" %a in ('git rev-parse --short=7 HEAD') do @set BUILD_VERSION=%a
+  - for /f "delims=" %%a in ('git rev-parse --short=7 HEAD') do @set BUILD_VERSION=%%a
   - set BUILD_ID=%BUILD_DATE%.%BUILD_VERSION%
 
   - if %TARGET%==editor mkdir %BUILD_ID%
