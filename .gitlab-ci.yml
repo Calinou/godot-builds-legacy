@@ -23,7 +23,6 @@ stages:
     - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
     - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
     - cd godot/
-    - patch methods.py ../always_tty.patch
 
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
@@ -52,6 +51,7 @@ build:linux_editor:
 
   <<: *install_dependencies
   script:
+    - patch methods.py ../always_tty.patch
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
   cache:
@@ -111,6 +111,7 @@ build:linux_templates:
   image: ubuntu:trusty
   <<: *install_dependencies
   script:
+    - patch methods.py ../always_tty.patch
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
@@ -175,6 +176,7 @@ build:html5:
     - source ./emsdk_env.sh
     - export EMSCRIPTEN_ROOT=$(em-config EMSCRIPTEN_ROOT)
     - cd $CI_PROJECT_DIR/godot/
+    - patch methods.py ../always_tty.patch
     - scons platform=javascript wasm=yes tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
