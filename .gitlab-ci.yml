@@ -16,6 +16,14 @@ stages:
 ## Helpers
 ##
 
+# Install dependencies before building or (sometimes) packaging
+.install_dependencies: &install_dependencies
+  before_script:
+    - apt-get update -yqq
+    - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
+    - git clone --depth=1 https://github.com/godotengine/godot.git
+    - cd godot/
+
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
   stage: deploy
@@ -31,14 +39,6 @@ stages:
     - rpl "#[BUILD_DATE]" "$BUILD_DATE" .bintray.json
     - dpl --provider=bintray --file=.bintray.json --user=Calinou --key=$BINTRAY_API_KEY
 
-# Install dependencies before building or (sometimes) packaging
-.install_dependencies: &install_dependencies
-  before_script:
-    - apt-get update -yqq
-    - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
-    - git clone --depth=1 https://github.com/godotengine/godot.git
-    - cd godot/
-
 ##
 ## Linux editor
 ##
@@ -48,6 +48,7 @@ stages:
 build:linux_editor:
   stage: build
   image: ubuntu:trusty
+
   <<: *install_dependencies
   script:
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
