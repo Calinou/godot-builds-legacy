@@ -54,6 +54,10 @@ build:linux_editor:
   script:
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
+  cache:
+    key: linux_editor
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
@@ -76,6 +80,10 @@ package:linux_editor:
     - ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
     - ./squashfs-root/AppRun appdir/godot.desktop -appimage
     - mv Godot_Engine-x86_64.AppImage bin/
+  cache:
+    key: linux_editor
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
@@ -106,6 +114,10 @@ build:linux_templates:
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
+  cache:
+    key: linux_templates
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
@@ -128,6 +140,10 @@ package:linux_templates:
     - cp templates/linux_x11_64_debug templates/linux_x11_32_debug
     - cp templates/linux_x11_64_release templates/linux_x11_32_release
     - zip -9 Godot-Templates-Linux.tpz templates/*
+  cache:
+    key: linux_templates
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
@@ -163,6 +179,10 @@ build:html5:
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
+  cache:
+    key: html5
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
@@ -184,6 +204,10 @@ package:html5:
     - mv godot.javascript.opt.debug.zip templates/javascript_debug.zip
     - mv godot.javascript.opt.zip templates/javascript_release.zip
     - zip -9 Godot-Templates-HTML5.tpz templates/*
+  cache:
+    key: html5
+    paths:
+      - godot/
   artifacts:
     when: on_success
     expire_in: 2d
