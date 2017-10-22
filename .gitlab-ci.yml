@@ -39,7 +39,7 @@ before_script:
 # Cache
 .cache: &cache
   cache:
-    key: "$CI_JOB_NAME-$CI_COMMIT_SHA"
+    key: "$CI_COMMIT_SHA"
     paths:
      - godot/
 
