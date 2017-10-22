@@ -32,9 +32,9 @@ before_script:
   - echo "$SSH_SERVER_HOSTKEYS" > "$HOME/.ssh/known_hosts"
   - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
   - cd godot/
-  - BUILD_COMMIT=$(git rev-parse --short HEAD)
   - BUILD_DATE=$(date -I)
-  - BUILD_VERSION=$BUILD_COMMIT.$BUILD_DATE
+  - BUILD_COMMIT=$(git rev-parse --short HEAD)
+  - BUILD_VERSION=$BUILD_DATE.$BUILD_COMMIT
 
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy

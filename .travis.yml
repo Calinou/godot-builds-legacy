@@ -8,23 +8,25 @@
 
 language: cpp
 
-sudo: false
-
 os:
   - osx
 
 env:
   global:
     - SCONS_OPTIONS="progress=no -j$(sysctl -n hw.logicalcpu)"
+    - DEPLOY_SERVER="hugo.pro"
+    - DEPLOY_USER="hugo"
+    - DEPLOY_PATH="/var/www/godot.hugo.pro/builds"
   matrix:
-    - PLATFORM=osx    TARGET=editor    INCLUDE_PATTERN="bin/Godot-macOS-x86_64.dmg"    UPLOAD_PATTERN="Godot-macOS-x86_64-#[BUILD_VERSION].dmg"
-    - PLATFORM=osx    TARGET=templates INCLUDE_PATTERN="bin/Godot-Templates-macOS.tpz" UPLOAD_PATTERN="templates/Godot-Templates-macOS-#[BUILD_VERSION].tpz"
-    - PLATFORM=iphone TARGET=templates INCLUDE_PATTERN="bin/Godot-Templates-iOS.tpz"   UPLOAD_PATTERN="templates/Godot-Templates-iOS-#[BUILD_VERSION].tpz"
+    - PLATFORM=osx TARGET=editor
+    - PLATFORM=osx TARGET=templates
+    - PLATFORM=iphone TARGET=templates
 
 before_script:
   - brew update
   - brew install scons
   - git clone --depth=1 https://github.com/godotengine/godot.git
+  - mkdir -p artifacts/editor/ artifacts/templates/
   - cd godot/
   - patch methods.py ../always_tty.patch
 
@@ -42,8 +44,8 @@ script:
         cp bin/godot.osx.opt.tools.64 godot_dmg/Godot.app/Contents/MacOS/Godot;
         git clone --depth=1 https://github.com/Calinou/create-dmg.git;
         cd create-dmg/;
-        ./create-dmg --volname "Godot" --volicon "../godot_dmg/Godot.app/Contents/Resources/Godot.icns" --hide-extension "Godot.app" ../bin/Godot-macOS-x86_64.dmg ../godot_dmg/;
-        cd ../;
+        ./create-dmg --volname "Godot" --volicon "../godot_dmg/Godot.app/Contents/Resources/Godot.icns" --hide-extension "Godot.app" ../../artifacts/editor/Godot-macOS-x86_64.dmg ../godot_dmg/;
+        cd ../../;
       fi;
       if [ "$TARGET" = "templates" ]; then
         scons platform=osx bits=64 tools=no target=release_debug $SCONS_OPTIONS;
@@ -52,12 +54,8 @@ script:
         mkdir -p osx_template.app/Contents/MacOS/;
         mv bin/godot.osx.opt.debug.64 osx_template.app/Contents/MacOS/godot_osx_debug.fat;
         mv bin/godot.osx.opt.64 osx_template.app/Contents/MacOS/godot_osx_release.fat;
-        mkdir -p bin/templates/;
-        echo "3.0-alpha" > bin/templates/version.txt;
-        zip -r9 bin/templates/osx.zip osx_template.app/;
-        cd bin/;
-        zip -9 Godot-Templates-macOS.tpz templates/*;
-        cd ../;
+        zip -r9 ../artifacts/templates/osx.zip osx_template.app/;
+        cd ../
       fi;
     fi;
   - if [ "$PLATFORM" = "iphone" ]; then
@@ -68,32 +66,19 @@ script:
       cd godot_ios_xcode/;
       cp godot_opt.iphone godot_debug.iphone;
       cd ../;
-      mkdir -p bin/templates/;
-      echo "3.0-alpha" > bin/templates/version.txt;
-      zip -r9 bin/templates/GodotiOSXCode.zip godot_ios_xcode/;
-      cd bin/;
-      zip -9 Godot-Templates-iOS.tpz templates/*;
-      cd ../;
+      zip -r9 ../artifacts/templates/GodotiOSXCode.zip godot_ios_xcode/;
+      cd ../
     fi;
 
-# macOS has both editor and templates to deploy, so two include/upload patterns are needed
-# Include/upload patterns are defined in the environment matrix
-before_deploy:
-  - brew update
-  - brew install rpl
-  - BUILD_VERSION=$(git rev-parse --short HEAD)
+after_success:
+  - cd ../
+  - openssl aes-256-cbc -K $encrypted_ac3bb8acfb19_key -iv $encrypted_ac3bb8acfb19_iv -in id_rsa_ci.enc -out id_rsa_ci -d
+  - eval "$(ssh-agent -s)"
+  - ssh-add ssh/id_rsa_ci
+  - mkdir -p "$HOME/.ssh/"
+  - cp ssh/server_hostkeys.txt "$HOME/.ssh/known_hosts"
   - BUILD_DATE=$(date +%Y-%m-%d)
-  - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
-  - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json
-  - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json
-  - rpl "#[BUILD_VERSION]" "$BUILD_DATE.$BUILD_VERSION" .bintray.json
-  - rpl "#[BUILD_DATE]" "$BUILD_DATE" .bintray.json
-
-deploy:
-  skip_cleanup: true
-  provider: bintray
-  file: .bintray.json
-  user: calinou
-  key: $BINTRAY_API_KEY
-  on:
-    branch: master
+  - BUILD_COMMIT=$(git -C godot/ rev-parse --short HEAD)
+  - BUILD_VERSION=$BUILD_DATE.$BUILD_COMMIT
+  - mv artifacts/ "$BUILD_VERSION/"
+  - scp -r "$BUILD_VERSION/" "$DEPLOY_USER@$DEPLOY_SERVER:$DEPLOY_PATH/"
