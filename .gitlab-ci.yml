@@ -151,6 +151,7 @@ build:html5:
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
+    - mkdir -p ../artifacts/
     - mv bin/godot.*.zip ../artifacts/
   <<: *artifacts
 
