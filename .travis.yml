@@ -55,7 +55,7 @@ script:
         mv bin/godot.osx.opt.debug.64 osx_template.app/Contents/MacOS/godot_osx_debug.fat;
         mv bin/godot.osx.opt.64 osx_template.app/Contents/MacOS/godot_osx_release.fat;
         zip -r9 ../artifacts/templates/osx.zip osx_template.app/;
-        cd ../
+        cd ../;
       fi;
     fi;
   - if [ "$PLATFORM" = "iphone" ]; then
@@ -67,7 +67,7 @@ script:
       cp godot_opt.iphone godot_debug.iphone;
       cd ../;
       zip -r9 ../artifacts/templates/GodotiOSXCode.zip godot_ios_xcode/;
-      cd ../
+      cd ../;
     fi;
 
 after_success:
