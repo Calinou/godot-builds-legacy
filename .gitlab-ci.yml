@@ -36,19 +36,22 @@ before_script:
   - BUILD_DATE=$(date -I)
   - BUILD_VERSION=$BUILD_COMMIT.$BUILD_DATE
 
-# Cache
-.cache: &cache
-  cache:
-    key: "$CI_COMMIT_SHA"
-    paths:
-     - godot/
-
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
   stage: deploy
   image: ubuntu:xenial
   script:
+    - cd ../
+    - mv artifacts/ "$BUILD_VERSION/"
     - scp -r "$BUILD_VERSION/" "$DEPLOY_USER@$DEPLOY_SERVER:$DEPLOY_PATH/"
+
+# Artifacts macro (used in all `build` and `package` stages)
+.artifacts: &artifacts
+  artifacts:
+    when: on_success
+    expire_in: 2d
+    paths:
+      - artifacts/
 
 ##
 ## Linux editor
@@ -63,7 +66,9 @@ build:linux_editor:
     - patch --forward methods.py ../always_tty.patch
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
-  <<: *cache
+    - mkdir -p ../artifacts/
+    - mv bin/godot.x11.opt.tools.64 ../artifacts/
+  <<: *artifacts
 
 package:linux_editor:
   stage: package
@@ -71,17 +76,16 @@ package:linux_editor:
   dependencies:
     - build:linux_editor
   script:
-    - mkdir -p appdir/usr/bin/ appdir/usr/share/icons
-    - cp bin/godot.x11.opt.tools.64 appdir/usr/bin/godot
-    - cp misc/dist/appimage/godot.desktop appdir/godot.desktop
-    - cp icon.svg appdir/usr/share/icons/godot.svg
+    - mkdir -p appdir/usr/bin/ appdir/usr/share/icons/ ../artifacts/editor/
+    - mv ../artifacts/godot.x11.opt.tools.64 appdir/usr/bin/godot
+    - mv misc/dist/appimage/godot.desktop appdir/godot.desktop
+    - mv icon.svg appdir/usr/share/icons/godot.svg
     - wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
     - chmod +x linuxdeployqt-continuous-x86_64.AppImage
     - ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
     - ./squashfs-root/AppRun appdir/godot.desktop -appimage
-    - mkdir -p "$BUILD_VERSION/editor/"
-    - mv Godot_Engine-x86_64.AppImage "$BUILD_VERSION/editor/Godot-Linux-x86_64-$BUILD_VERSION.AppImage"
-  <<: *cache
+    - mv Godot_Engine-x86_64.AppImage ../artifacts/editor/Godot-Linux-x86_64.AppImage
+  <<: *artifacts
 
 deploy:linux_editor:
   dependencies:
@@ -104,7 +108,9 @@ build:linux_templates:
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
-  <<: *cache
+    - mkdir -p ../artifacts/
+    - mv bin/godot.*.64 ../artifacts/
+  <<: *artifacts
 
 package:linux_templates:
   stage: package
@@ -112,12 +118,13 @@ package:linux_templates:
   dependencies:
     - build:linux_templates
   script:
-    - mkdir -p "$BUILD_VERSION/templates/"
-    - mv bin/godot.x11.opt.debug.64 "$BUILD_VERSION/templates/linux_x11_64_debug"
-    - mv bin/godot.x11.opt.64 "$BUILD_VERSION/templates/linux_x11_64_release"
-    - cp "$BUILD_VERSION/templates/linux_x11_64_debug" "$BUILD_VERSION/templates/linux_x11_32_debug"
-    - cp "$BUILD_VERSION/templates/linux_x11_64_release" "$BUILD_VERSION/templates/linux_x11_32_release"
-  <<: *cache
+    - cd ../artifacts/
+    - mkdir -p templates/
+    - mv godot.x11.opt.debug.64 templates/linux_x11_64_debug
+    - mv godot.x11.opt.64 templates/linux_x11_64_release
+    - cp templates/linux_x11_64_debug templates/linux_x11_32_debug
+    - cp templates/linux_x11_64_release templates/linux_x11_32_release
+  <<: *artifacts
 
 deploy:linux_templates:
   dependencies:
@@ -132,7 +139,7 @@ build:html5:
   stage: build
   image: ubuntu:xenial
   script:
-    - cd $HOME
+    - cd "$HOME"
     - wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz
     - tar xf emsdk-portable.tar.gz
     - cd emsdk-portable/; ./emsdk update; ./emsdk install latest; ./emsdk activate latest
@@ -144,7 +151,8 @@ build:html5:
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
-  <<: *cache
+    - mv bin/godot.*.zip ../artifacts/
+  <<: *artifacts
 
 package:html5:
   stage: package
@@ -152,12 +160,13 @@ package:html5:
   dependencies:
     - build:html5
   script:
-    - mkdir -p "$BUILD_VERSION/templates/"
-    - mv godot.javascript.opt.debug.webassembly.zip "$BUILD_VERSION/templates/webassembly_debug.zip"
-    - mv godot.javascript.opt.webassembly.zip "$BUILD_VERSION/templates/webassembly_release.zip"
-    - mv godot.javascript.opt.debug.zip "$BUILD_VERSION/templates/javascript_debug.zip"
-    - mv godot.javascript.opt.zip "$BUILD_VERSION/templates/javascript_release.zip"
-  <<: *cache
+    - cd ../artifacts/
+    - mkdir templates/
+    - mv godot.javascript.opt.debug.webassembly.zip templates/webassembly_debug.zip
+    - mv godot.javascript.opt.webassembly.zip templates/webassembly_release.zip
+    - mv godot.javascript.opt.debug.zip templates/javascript_debug.zip
+    - mv godot.javascript.opt.zip templates/javascript_release.zip
+  <<: *artifacts
 
 deploy:html5:
   dependencies:
