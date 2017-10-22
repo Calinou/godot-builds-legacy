@@ -60,7 +60,7 @@ build:linux_editor:
   stage: build
   image: ubuntu:trusty
   script:
-    - patch methods.py ../always_tty.patch
+    - patch --forward methods.py ../always_tty.patch
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
   <<: *cache
@@ -100,7 +100,7 @@ build:linux_templates:
   stage: build
   image: ubuntu:trusty
   script:
-    - patch methods.py ../always_tty.patch
+    - patch --forward methods.py ../always_tty.patch
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
@@ -139,7 +139,7 @@ build:html5:
     - source ./emsdk_env.sh
     - export EMSCRIPTEN_ROOT=$(em-config EMSCRIPTEN_ROOT)
     - cd "$CI_PROJECT_DIR/godot/"
-    - patch methods.py ../always_tty.patch
+    - patch --forward methods.py ../always_tty.patch
     - scons platform=javascript wasm=yes tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
