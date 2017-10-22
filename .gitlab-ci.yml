@@ -24,8 +24,8 @@ variables:
 # Install dependencies and initialize stuff before every job,
 # and set the build commit, date and version variables
 before_script:
-  - apt update -yqq
-  - apt install -yqq openssh-client git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
+  - apt-get update -yqq
+  - apt-get install -yqq openssh-client git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
   - eval $(ssh-agent -s)
   - ssh-add <(echo "$SSH_PRIVATE_KEY")
   - mkdir -p "$HOME/.ssh/"
@@ -35,6 +35,13 @@ before_script:
   - BUILD_COMMIT=$(git rev-parse --short HEAD)
   - BUILD_DATE=$(date -I)
   - BUILD_VERSION=$BUILD_COMMIT.$BUILD_DATE
+
+# Cache
+.cache: &cache
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_SHA"
+    paths:
+     - godot/
 
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
@@ -56,10 +63,7 @@ build:linux_editor:
     - patch methods.py ../always_tty.patch
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
     - strip bin/godot.x11.opt.tools.64
-  cache:
-    key: linux_editor
-    paths:
-      - godot/
+  <<: *cache
 
 package:linux_editor:
   stage: package
@@ -77,10 +81,7 @@ package:linux_editor:
     - ./squashfs-root/AppRun appdir/godot.desktop -appimage
     - mkdir -p "$BUILD_VERSION/editor/"
     - mv Godot_Engine-x86_64.AppImage "$BUILD_VERSION/editor/Godot-Linux-x86_64-$BUILD_VERSION.AppImage"
-  cache:
-    key: linux_editor
-    paths:
-      - godot/
+  <<: *cache
 
 deploy:linux_editor:
   dependencies:
@@ -103,10 +104,7 @@ build:linux_templates:
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=x11 tools=no target=release progress=no -j$(nproc)
     - strip bin/godot.*.64
-  cache:
-    key: linux_templates
-    paths:
-      - godot/
+  <<: *cache
 
 package:linux_templates:
   stage: package
@@ -119,10 +117,7 @@ package:linux_templates:
     - mv bin/godot.x11.opt.64 "$BUILD_VERSION/templates/linux_x11_64_release"
     - cp "$BUILD_VERSION/templates/linux_x11_64_debug" "$BUILD_VERSION/templates/linux_x11_32_debug"
     - cp "$BUILD_VERSION/templates/linux_x11_64_release" "$BUILD_VERSION/templates/linux_x11_32_release"
-  cache:
-    key: linux_templates
-    paths:
-      - godot/
+  <<: *cache
 
 deploy:linux_templates:
   dependencies:
@@ -149,10 +144,7 @@ build:html5:
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
-  cache:
-    key: html5
-    paths:
-      - godot/
+  <<: *cache
 
 package:html5:
   stage: package
@@ -165,10 +157,7 @@ package:html5:
     - mv godot.javascript.opt.webassembly.zip "$BUILD_VERSION/templates/webassembly_release.zip"
     - mv godot.javascript.opt.debug.zip "$BUILD_VERSION/templates/javascript_debug.zip"
     - mv godot.javascript.opt.zip "$BUILD_VERSION/templates/javascript_release.zip"
-  cache:
-    key: html5
-    paths:
-      - godot/
+  <<: *cache
 
 deploy:html5:
   dependencies:
