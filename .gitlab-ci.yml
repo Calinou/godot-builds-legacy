@@ -12,32 +12,36 @@ stages:
   - package
   - deploy
 
+variables:
+  DEPLOY_SERVER: hugo.pro
+  DEPLOY_USER: hugo
+  DEPLOY_PATH: /var/www/godot.hugo.pro/builds
+
 ##
 ## Helpers
 ##
 
-# Install dependencies before building or (sometimes) packaging
-.install_dependencies: &install_dependencies
-  before_script:
-    - apt-get update -yqq
-    - apt-get install -yqq git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
-    - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
-    - cd godot/
+# Install dependencies and initialize stuff before every job,
+# and set the build commit, date and version variables
+before_script:
+  - apt update -yqq
+  - apt install -yqq openssh-client git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
+  - eval $(ssh-agent -s)
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  - mkdir -p "$HOME/.ssh/"
+  - echo "$SSH_SERVER_HOSTKEYS" > "$HOME/.ssh/known_hosts"
+  - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
+  - cd godot/
+  - BUILD_COMMIT=$(git rev-parse --short HEAD)
+  - BUILD_DATE=$(date -I)
+  - BUILD_VERSION=$BUILD_COMMIT.$BUILD_DATE
 
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
   stage: deploy
   image: ubuntu:xenial
-  <<: *install_dependencies
   script:
-    - wget -q https://raw.githubusercontent.com/Calinou/godot-builds/master/.bintray.json -O .bintray.json
-    - BUILD_VERSION=$(git -C godot/ rev-parse --short HEAD)
-    - BUILD_DATE=$(date -I)
-    - rpl "#[INCLUDE_PATTERN]" "$INCLUDE_PATTERN" .bintray.json  # The variable is defined in each job
-    - rpl "#[UPLOAD_PATTERN]" "$UPLOAD_PATTERN" .bintray.json  # The variable is defined in each job
-    - rpl "#[BUILD_VERSION]" "$BUILD_DATE.$BUILD_VERSION" .bintray.json  # Replace the version *after* replacing the upload pattern, because it also is contained in the upload pattern
-    - rpl "#[BUILD_DATE]" "$BUILD_DATE" .bintray.json
-    - dpl --provider=bintray --file=.bintray.json --user=Calinou --key=$BINTRAY_API_KEY
+    - scp -r "$BUILD_VERSION/" "$DEPLOY_USER@$DEPLOY_SERVER:$DEPLOY_PATH/"
 
 ##
 ## Linux editor
@@ -48,8 +52,6 @@ stages:
 build:linux_editor:
   stage: build
   image: ubuntu:trusty
-
-  <<: *install_dependencies
   script:
     - patch methods.py ../always_tty.patch
     - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
@@ -58,18 +60,12 @@ build:linux_editor:
     key: linux_editor
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/godot.x11.opt.tools.64
 
 package:linux_editor:
   stage: package
   image: ubuntu:trusty
   dependencies:
     - build:linux_editor
-  <<: *install_dependencies
   script:
     - mkdir -p appdir/usr/bin/ appdir/usr/share/icons
     - cp bin/godot.x11.opt.tools.64 appdir/usr/bin/godot
@@ -79,23 +75,16 @@ package:linux_editor:
     - chmod +x linuxdeployqt-continuous-x86_64.AppImage
     - ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
     - ./squashfs-root/AppRun appdir/godot.desktop -appimage
-    - mv Godot_Engine-x86_64.AppImage bin/
+    - mkdir -p "$BUILD_VERSION/editor/"
+    - mv Godot_Engine-x86_64.AppImage "$BUILD_VERSION/editor/Godot-Linux-x86_64-$BUILD_VERSION.AppImage"
   cache:
     key: linux_editor
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/Godot_Engine-x86_64.AppImage
 
 deploy:linux_editor:
   dependencies:
     - package:linux_editor
-  variables:
-    INCLUDE_PATTERN: "godot/bin/Godot_Engine-x86_64.AppImage"
-    UPLOAD_PATTERN: "Godot-Linux-x86_64-#[BUILD_VERSION].AppImage"
   <<: *deploy
 
 ##
@@ -109,7 +98,6 @@ deploy:linux_editor:
 build:linux_templates:
   stage: build
   image: ubuntu:trusty
-  <<: *install_dependencies
   script:
     - patch methods.py ../always_tty.patch
     - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
@@ -119,45 +107,26 @@ build:linux_templates:
     key: linux_templates
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/godot.x11.opt.debug.64
-      - godot/bin/godot.x11.opt.64
 
 package:linux_templates:
   stage: package
   image: ubuntu:trusty
   dependencies:
     - build:linux_templates
-  <<: *install_dependencies
   script:
-    - cd bin/
-    - mkdir templates/
-    - echo "3.0-alpha" > templates/version.txt
-    - mv godot.x11.opt.debug.64 templates/linux_x11_64_debug
-    - mv godot.x11.opt.64 templates/linux_x11_64_release
-    - cp templates/linux_x11_64_debug templates/linux_x11_32_debug
-    - cp templates/linux_x11_64_release templates/linux_x11_32_release
-    - zip -9 Godot-Templates-Linux.tpz templates/*
+    - mkdir -p "$BUILD_VERSION/templates/"
+    - mv bin/godot.x11.opt.debug.64 "$BUILD_VERSION/templates/linux_x11_64_debug"
+    - mv bin/godot.x11.opt.64 "$BUILD_VERSION/templates/linux_x11_64_release"
+    - cp "$BUILD_VERSION/templates/linux_x11_64_debug" "$BUILD_VERSION/templates/linux_x11_32_debug"
+    - cp "$BUILD_VERSION/templates/linux_x11_64_release" "$BUILD_VERSION/templates/linux_x11_32_release"
   cache:
     key: linux_templates
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/Godot-Templates-Linux.tpz
 
 deploy:linux_templates:
   dependencies:
     - package:linux_templates
-  <<: *install_dependencies
-  variables:
-    INCLUDE_PATTERN: "godot/bin/Godot-Templates-Linux.tpz"
-    UPLOAD_PATTERN: "templates/Godot-Templates-Linux-#[BUILD_VERSION].tpz"
   <<: *deploy
 
 ##
@@ -167,7 +136,6 @@ deploy:linux_templates:
 build:html5:
   stage: build
   image: ubuntu:xenial
-  <<: *install_dependencies
   script:
     - cd $HOME
     - wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz
@@ -175,7 +143,7 @@ build:html5:
     - cd emsdk-portable/; ./emsdk update; ./emsdk install latest; ./emsdk activate latest
     - source ./emsdk_env.sh
     - export EMSCRIPTEN_ROOT=$(em-config EMSCRIPTEN_ROOT)
-    - cd $CI_PROJECT_DIR/godot/
+    - cd "$CI_PROJECT_DIR/godot/"
     - patch methods.py ../always_tty.patch
     - scons platform=javascript wasm=yes tools=no target=release_debug progress=no -j$(nproc)
     - scons platform=javascript wasm=yes tools=no target=release progress=no -j$(nproc)
@@ -185,41 +153,24 @@ build:html5:
     key: html5
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/
 
 package:html5:
   stage: package
   image: ubuntu:xenial
   dependencies:
     - build:html5
-  <<: *install_dependencies
   script:
-    - cd bin/
-    - mkdir templates/
-    - echo "3.0-alpha" > templates/version.txt
-    - mv godot.javascript.opt.debug.webassembly.zip templates/webassembly_debug.zip
-    - mv godot.javascript.opt.webassembly.zip templates/webassembly_release.zip
-    - mv godot.javascript.opt.debug.zip templates/javascript_debug.zip
-    - mv godot.javascript.opt.zip templates/javascript_release.zip
-    - zip -9 Godot-Templates-HTML5.tpz templates/*
+    - mkdir -p "$BUILD_VERSION/templates/"
+    - mv godot.javascript.opt.debug.webassembly.zip "$BUILD_VERSION/templates/webassembly_debug.zip"
+    - mv godot.javascript.opt.webassembly.zip "$BUILD_VERSION/templates/webassembly_release.zip"
+    - mv godot.javascript.opt.debug.zip "$BUILD_VERSION/templates/javascript_debug.zip"
+    - mv godot.javascript.opt.zip "$BUILD_VERSION/templates/javascript_release.zip"
   cache:
     key: html5
     paths:
       - godot/
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - godot/bin/Godot-Templates-HTML5.tpz
 
 deploy:html5:
   dependencies:
     - package:html5
-  variables:
-    INCLUDE_PATTERN: "godot/bin/Godot-Templates-HTML5.tpz"
-    UPLOAD_PATTERN: "templates/Godot-Templates-HTML5-#[BUILD_VERSION].tpz"
   <<: *deploy
