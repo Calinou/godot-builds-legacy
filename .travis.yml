@@ -45,7 +45,7 @@ script:
         git clone --depth=1 https://github.com/Calinou/create-dmg.git;
         cd create-dmg/;
         ./create-dmg --volname "Godot" --volicon "../godot_dmg/Godot.app/Contents/Resources/Godot.icns" --hide-extension "Godot.app" ../../artifacts/editor/Godot-macOS-x86_64.dmg ../godot_dmg/;
-        cd ../../;
+        cd ../;
       fi;
       if [ "$TARGET" = "templates" ]; then
         scons platform=osx bits=64 tools=no target=release_debug $SCONS_OPTIONS;
@@ -55,7 +55,6 @@ script:
         mv bin/godot.osx.opt.debug.64 osx_template.app/Contents/MacOS/godot_osx_debug.fat;
         mv bin/godot.osx.opt.64 osx_template.app/Contents/MacOS/godot_osx_release.fat;
         zip -r9 ../artifacts/templates/osx.zip osx_template.app/;
-        cd ../;
       fi;
     fi;
   - if [ "$PLATFORM" = "iphone" ]; then
@@ -67,7 +66,6 @@ script:
       cp godot_opt.iphone godot_debug.iphone;
       cd ../;
       zip -r9 ../artifacts/templates/GodotiOSXCode.zip godot_ios_xcode/;
-      cd ../;
     fi;
 
 after_success:
