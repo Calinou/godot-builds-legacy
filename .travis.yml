@@ -69,7 +69,7 @@ script:
 
 after_success:
   - cd "$TRAVIS_BUILD_DIR/"
-  - openssl aes-256-cbc -K $encrypted_ac3bb8acfb19_key -iv $encrypted_ac3bb8acfb19_iv -in id_rsa_ci.enc -out id_rsa_ci -d
+  - openssl aes-256-cbc -K $encrypted_ac3bb8acfb19_key -iv $encrypted_ac3bb8acfb19_iv -in ssh/id_rsa_ci.enc -out ssh/id_rsa_ci -d
   - eval "$(ssh-agent -s)"
   - ssh-add ssh/id_rsa_ci
   - mkdir -p "$HOME/.ssh/"
