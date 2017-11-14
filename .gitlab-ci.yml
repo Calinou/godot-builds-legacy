@@ -57,6 +57,9 @@ variables:
     - cd ../
     - mv artifacts/ "$BUILD_VERSION/"
     - scp -r "$BUILD_VERSION/" "$DEPLOY_USER@$DEPLOY_SERVER:$DEPLOY_PATH/"
+  only:
+    refs:
+      - master
 
 # HTML5 export templates
 
