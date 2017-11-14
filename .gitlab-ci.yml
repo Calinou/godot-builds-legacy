@@ -1,7 +1,6 @@
-# The GitHub repository is mirrored to GitLab.com, where continuous builds
-# are performed for Linux and HTML5 platforms using GitLab CI.
+# Continuous builds are performed using GitLab CI.
 #
-# Download builds: https://bintray.com/calinou/godot/editor/_latestVersion#files
+# Download builds: https://godot.hugo.pro/
 # GitLab repository: https://gitlab.com/Calinou/godot-builds
 #
 # This build script is licensed under CC0 1.0 Universal:
@@ -12,132 +11,61 @@ stages:
   - package
   - deploy
 
+# Environment variables
 variables:
   DEPLOY_SERVER: hugo.pro
   DEPLOY_USER: hugo
   DEPLOY_PATH: /var/www/godot.hugo.pro/builds
+  # The directory where various scripts are located
+  SCRIPTS_PATH: $CI_PROJECT_DIR/scripts
+  # The directory where artifacts are located
+  ARTIFACTS_PATH: $CI_PROJECT_DIR/artifacts
+  # The directory containing files specific to Windows (like installer definition files)
+  WINDOWS_PATH: $CI_PROJECT_DIR/windows
 
-##
-## Helpers
-##
+# Build artifacts (this directory will be kept between jobs)
+artifacts:
+  when: on_success
+  expire_in: 2d
+  paths:
+    - artifacts/
 
-# Install dependencies and initialize stuff before every job,
-# and set the build commit, date and version variables
-before_script:
-  - apt-get update -yqq
-  - apt-get install -yqq openssh-client git cmake wget ruby rpl build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu-dev libasound2-dev libpulse-dev libfreetype6-dev libssl-dev libudev-dev libxrandr-dev
-  - eval $(ssh-agent -s)
-  - ssh-add <(echo "$SSH_PRIVATE_KEY")
-  - mkdir -p "$HOME/.ssh/"
-  - echo "$SSH_SERVER_HOSTKEYS" > "$HOME/.ssh/known_hosts"
-  - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
-  - cd godot/
-  - BUILD_DATE=$(date -I)
-  - BUILD_COMMIT=$(git rev-parse --short HEAD)
-  - BUILD_VERSION=$BUILD_DATE.$BUILD_COMMIT
+# Helpers
+
+# Install dependencies and initialize stuff before every non-deploy job,
+# and set the build commit, date and version variables. Also make the jobs run
+# only on the `master` branch.
+.initialize: &initialize
+  before_script:
+    - "$CI_PROJECT_DIR/scripts/install_dependencies.sh"
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p "$HOME/.ssh/"
+    - echo "$SSH_SERVER_HOSTKEYS" > "$HOME/.ssh/known_hosts"
+    - if [ ! -d godot/ ]; then git clone --depth=1 https://github.com/godotengine/godot.git; fi
+    - cd godot/
+    - BUILD_DATE=$(date -I)
+    - BUILD_COMMIT=$(git rev-parse --short HEAD)
+    - BUILD_VERSION=$BUILD_DATE.$BUILD_COMMIT
+  only:
+    refs:
+      - master
 
 # Deployment helper macro (used in all `deploy` stages)
 .deploy: &deploy
   stage: deploy
-  image: ubuntu:xenial
+  image: fedora:26
   script:
     - cd ../
     - mv artifacts/ "$BUILD_VERSION/"
     - scp -r "$BUILD_VERSION/" "$DEPLOY_USER@$DEPLOY_SERVER:$DEPLOY_PATH/"
 
-# Artifacts macro (used in all `build` and `package` stages)
-.artifacts: &artifacts
-  artifacts:
-    when: on_success
-    expire_in: 2d
-    paths:
-      - artifacts/
-
-##
-## Linux editor
-##
-
-# TODO: Build 32-bit Linux editor
-
-build:linux_editor:
-  stage: build
-  image: ubuntu:trusty
-  script:
-    - patch --forward methods.py ../always_tty.patch
-    - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
-    - strip bin/godot.x11.opt.tools.64
-    - mkdir -p ../artifacts/
-    - mv bin/godot.x11.opt.tools.64 ../artifacts/
-  <<: *artifacts
-
-package:linux_editor:
-  stage: package
-  image: ubuntu:trusty
-  dependencies:
-    - build:linux_editor
-  script:
-    - mkdir -p appdir/usr/bin/ appdir/usr/share/icons/ ../artifacts/editor/
-    - mv ../artifacts/godot.x11.opt.tools.64 appdir/usr/bin/godot
-    - mv misc/dist/appimage/godot.desktop appdir/godot.desktop
-    - mv icon.svg appdir/usr/share/icons/godot.svg
-    - wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-    - chmod +x linuxdeployqt-continuous-x86_64.AppImage
-    - ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
-    - ./squashfs-root/AppRun appdir/godot.desktop -appimage
-    - mv Godot_Engine-x86_64.AppImage ../artifacts/editor/Godot-Linux-x86_64.AppImage
-  <<: *artifacts
-
-deploy:linux_editor:
-  dependencies:
-    - package:linux_editor
-  <<: *deploy
-
-##
-## Linux export templates
-##
-
-# TODO: Build 32-bit Linux export templates. For now, the 64-bit templates
-# are copied to 32-bit templates, to prevent errors from appearing in the
-# export dialog.
-
-build:linux_templates:
-  stage: build
-  image: ubuntu:trusty
-  script:
-    - patch --forward methods.py ../always_tty.patch
-    - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
-    - scons platform=x11 tools=no target=release progress=no -j$(nproc)
-    - strip bin/godot.*.64
-    - mkdir -p ../artifacts/
-    - mv bin/godot.*.64 ../artifacts/
-  <<: *artifacts
-
-package:linux_templates:
-  stage: package
-  image: ubuntu:trusty
-  dependencies:
-    - build:linux_templates
-  script:
-    - cd ../artifacts/
-    - mkdir -p templates/
-    - mv godot.x11.opt.debug.64 templates/linux_x11_64_debug
-    - mv godot.x11.opt.64 templates/linux_x11_64_release
-    - cp templates/linux_x11_64_debug templates/linux_x11_32_debug
-    - cp templates/linux_x11_64_release templates/linux_x11_32_release
-  <<: *artifacts
-
-deploy:linux_templates:
-  dependencies:
-    - package:linux_templates
-  <<: *deploy
-
-##
-## HTML5
-##
+# HTML5 export templates
 
 build:html5:
+  <<: *initialize
   stage: build
-  image: ubuntu:xenial
+  image: fedora:26
   script:
     - cd "$HOME"
     - wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz
@@ -153,11 +81,11 @@ build:html5:
     - scons platform=javascript wasm=no tools=no target=release progress=no -j$(nproc)
     - mkdir -p ../artifacts/
     - mv bin/godot.*.zip ../artifacts/
-  <<: *artifacts
 
 package:html5:
+  <<: *initialize
   stage: package
-  image: ubuntu:xenial
+  image: fedora:26
   dependencies:
     - build:html5
   script:
@@ -167,9 +95,126 @@ package:html5:
     - mv godot.javascript.opt.webassembly.zip templates/webassembly_release.zip
     - mv godot.javascript.opt.debug.zip templates/javascript_debug.zip
     - mv godot.javascript.opt.zip templates/javascript_release.zip
-  <<: *artifacts
 
 deploy:html5:
+  <<: *deploy
   dependencies:
     - package:html5
+
+# Linux editor
+# TODO: Build 32-bit Linux editor
+
+build:linux_editor:
+  <<: *initialize
+  stage: build
+  image: ubuntu:trusty
+  script:
+    - patch --forward methods.py ../always_tty.patch
+    - scons platform=x11 tools=yes target=release_debug progress=no -j$(nproc)
+    - strip bin/godot.x11.opt.tools.64
+    - mkdir -p ../artifacts/
+    - mv bin/godot.x11.opt.tools.64 ../artifacts/
+
+package:linux_editor:
+  <<: *initialize
+  stage: package
+  image: ubuntu:trusty
+  dependencies:
+    - build:linux_editor
+  script:
+    - mkdir -p appdir/usr/bin/ appdir/usr/share/icons/ ../artifacts/editor/
+    - mv ../artifacts/godot.x11.opt.tools.64 appdir/usr/bin/godot
+    - mv misc/dist/appimage/godot.desktop appdir/godot.desktop
+    - mv icon.svg appdir/usr/share/icons/godot.svg
+    - wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+    - chmod +x linuxdeployqt-continuous-x86_64.AppImage
+    - ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
+    - ./squashfs-root/AppRun appdir/godot.desktop -appimage
+    - mv Godot_Engine-x86_64.AppImage ../artifacts/editor/Godot-Linux-x86_64.AppImage
+
+deploy:linux_editor:
   <<: *deploy
+  dependencies:
+    - package:linux_editor
+
+# Linux export templates
+# TODO: Build 32-bit Linux export templates. For now, the 64-bit templates
+# are copied to 32-bit templates, to prevent errors from appearing in the
+# export dialog.
+
+build:linux_templates:
+  <<: *initialize
+  stage: build
+  image: ubuntu:trusty
+  script:
+    - patch --forward methods.py ../always_tty.patch
+    - scons platform=x11 tools=no target=release_debug progress=no -j$(nproc)
+    - scons platform=x11 tools=no target=release progress=no -j$(nproc)
+    - strip bin/godot.*.64
+    - mkdir -p ../artifacts/
+    - mv bin/godot.*.64 ../artifacts/
+
+package:linux_templates:
+  <<: *initialize
+  stage: package
+  image: ubuntu:trusty
+  dependencies:
+    - build:linux_templates
+  script:
+    - cd ../artifacts/
+    - mkdir -p templates/
+    - mv godot.x11.opt.debug.64 templates/linux_x11_64_debug
+    - mv godot.x11.opt.64 templates/linux_x11_64_release
+    - cp templates/linux_x11_64_debug templates/linux_x11_32_debug
+    - cp templates/linux_x11_64_release templates/linux_x11_32_release
+
+deploy:linux_templates:
+  <<: *deploy
+  dependencies:
+    - package:linux_templates
+
+# Windows editor
+
+build:windows_editor:
+  <<: *initialize
+  stage: build
+  image: fedora:26
+  script:
+    - "$SCRIPTS_PATH/build_windows.sh" "editor"
+
+package:windows_editor:
+  <<: *initialize
+  stage: package
+  image: fedora:26
+  dependencies:
+    - build:windows_editor
+  script:
+    - "$SCRIPTS_PATH/package_windows.sh" "editor"
+
+deploy:windows_editor:
+  <<: *deploy
+  dependencies:
+    - package:windows_editor
+
+# Windows export templates
+
+build:windows_templates:
+  <<: *initialize
+  stage: build
+  image: fedora:26
+  script:
+    - "$SCRIPTS_PATH/build_windows.sh" "templates"
+
+package:windows_templates:
+  <<: *initialize
+  stage: package
+  image: fedora:26
+  dependencies:
+    - build:windows_editor
+  script:
+    - "$SCRIPTS_PATH/package_windows.sh" "editor"
+
+deploy:windows_templates:
+  <<: *deploy
+  dependencies:
+    - package:windows_templates
