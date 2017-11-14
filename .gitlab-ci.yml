@@ -23,18 +23,11 @@ variables:
   # The directory containing files specific to Windows (like installer definition files)
   WINDOWS_PATH: $CI_PROJECT_DIR/windows
 
-# Build artifacts (this directory will be kept between jobs)
-artifacts:
-  when: on_success
-  expire_in: 2d
-  paths:
-    - artifacts/
-
 # Helpers
 
 # Install dependencies and initialize stuff before every non-deploy job,
-# and set the build commit, date and version variables. Also make the jobs run
-# only on the `master` branch.
+# and set the build commit, date and version variables. Also declare artifacts,
+# and make the jobs run only on the `master` branch.
 .initialize: &initialize
   before_script:
     - "$CI_PROJECT_DIR/scripts/install_dependencies.sh"
@@ -47,6 +40,11 @@ artifacts:
     - BUILD_DATE=$(date -I)
     - BUILD_COMMIT=$(git rev-parse --short HEAD)
     - BUILD_VERSION=$BUILD_DATE.$BUILD_COMMIT
+  artifacts:
+    when: on_success
+    expire_in: 2d
+    paths:
+      - artifacts/
   only:
     refs:
       - master
@@ -180,7 +178,7 @@ build:windows_editor:
   stage: build
   image: fedora:26
   script:
-    - "$SCRIPTS_PATH/build_windows.sh" "editor"
+    - $SCRIPTS_PATH/build_windows.sh editor
 
 package:windows_editor:
   <<: *initialize
@@ -189,7 +187,7 @@ package:windows_editor:
   dependencies:
     - build:windows_editor
   script:
-    - "$SCRIPTS_PATH/package_windows.sh" "editor"
+    - $SCRIPTS_PATH/package_windows.sh editor
 
 deploy:windows_editor:
   <<: *deploy
@@ -203,7 +201,7 @@ build:windows_templates:
   stage: build
   image: fedora:26
   script:
-    - "$SCRIPTS_PATH/build_windows.sh" "templates"
+    - $SCRIPTS_PATH/build_windows.sh templates
 
 package:windows_templates:
   <<: *initialize
@@ -212,7 +210,7 @@ package:windows_templates:
   dependencies:
     - build:windows_editor
   script:
-    - "$SCRIPTS_PATH/package_windows.sh" "editor"
+    - $SCRIPTS_PATH/package_windows.sh editor
 
 deploy:windows_templates:
   <<: *deploy
